@@ -3,7 +3,7 @@ import time
 from brownie import (
     accounts,
     network,
-    StrategyGenericSolidexHelper,
+    StrategyGenericSolidexDCA,
     SettV4,
     AdminUpgradeabilityProxy,
     Controller,
@@ -159,7 +159,7 @@ def deploy_strategy(
 
     print("Strategy Arguments: ", args)
 
-    strat_logic = StrategyGenericSolidexHelper.at("0x2b7f219d0f574d1bb7893bdddb67e40f4aa8d10d")
+    strat_logic = StrategyGenericSolidexDCA.at("0x2b7f219d0f574d1bb7893bdddb67e40f4aa8d10d")
 
     strat_proxy = AdminUpgradeabilityProxy.deploy(
         strat_logic,
@@ -171,7 +171,7 @@ def deploy_strategy(
 
     ## We delete from deploy and then fetch again so we can interact
     AdminUpgradeabilityProxy.remove(strat_proxy)
-    strat_proxy = StrategyGenericSolidexHelper.at(strat_proxy.address)
+    strat_proxy = StrategyGenericSolidexDCA.at(strat_proxy.address)
 
     console.print("[green]Strategy was deployed at: [/green]", strat_proxy.address)
 

@@ -3,7 +3,7 @@ from brownie import (
     interface,
     Controller,
     SettV4,
-    StrategyGenericSolidexHelper,
+    StrategyGenericSolidexDCA,
 )
 from config import (
     BADGER_DEV_MULTISIG,
@@ -59,7 +59,7 @@ def deploy(sett_config):
     controller.setVault(sett.token(), sett)
 
     # Deploy strat
-    strategy = StrategyGenericSolidexHelper.deploy({"from": deployer})
+    strategy = StrategyGenericSolidexDCA.deploy({"from": deployer})
 
     args = [
         BADGER_DEV_MULTISIG,

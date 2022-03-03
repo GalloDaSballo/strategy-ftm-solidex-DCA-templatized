@@ -20,7 +20,7 @@ import {IBaseV1Pair} from "../interfaces/solidly/IBaseV1Pair.sol";
 import {route} from "../interfaces/solidly/IBaseV1Router01.sol";
 import {BaseStrategy} from "../deps/BaseStrategy.sol";
 
-contract StrategyGenericSolidexHelper is BaseStrategy {
+contract StrategyGenericSolidexDCA is BaseStrategy {
     using SafeERC20Upgradeable for IERC20Upgradeable;
     using AddressUpgradeable for address;
     using SafeMathUpgradeable for uint256;
@@ -48,12 +48,18 @@ contract StrategyGenericSolidexHelper is BaseStrategy {
     IERC20Upgradeable public constant wFTM =
         IERC20Upgradeable(0x21be370D5312f44cB42ce377BC9b8a0cEF1A4C83);
 
-    IERC20Upgradeable public constant renBTC = IERC20Upgradeable(0xDBf31dF14B66535aF65AaC99C32e9eA844e14501);
-    IERC20Upgradeable public constant wBTC = IERC20Upgradeable(0x321162Cd933E2Be498Cd2267a90534A804051b11);
-
     IERC20Upgradeable public token0; // Set in initialize, next step toward reusability
     IERC20Upgradeable public token1;
 
+
+    // DCA Functionality
+    ISettV4h public targetVault; // Token we DCA into // Unchangeable
+    address targetVaultWant;
+    IERC20Upgradeable targetVaultWantUnderlying0;
+    IERC20Upgradeable targetVaultWantUnderlying1;
+
+    address public constant BADGER_TREE =
+        0x89122c767A5F543e663DB536b603123225bc3823;
 
     // Constants
     uint256 public constant MAX_BPS = 10000;
@@ -89,8 +95,8 @@ contract StrategyGenericSolidexHelper is BaseStrategy {
         address _controller,
         address _keeper,
         address _guardian,
-        address _want,
-        uint256[3] memory _feeConfig
+        address[2] calldata _wantConfig,
+        uint256[3] calldata _feeConfig
     ) public initializer {
         __BaseStrategy_init(
             _governance,
@@ -99,8 +105,21 @@ contract StrategyGenericSolidexHelper is BaseStrategy {
             _keeper,
             _guardian
         );
+
+        // Token we invest
+        address _want = _wantConfig[0];
+
+        // Vault we DCA into
+        address _targetVault = _wantConfig[1];
+
         /// @dev Add config here
         want = _want;
+        targetVault = ISettV4h(_targetVault);
+
+        IBaseV1Pair _targetWant = IBaseV1Pair(ISettV4h(_targetVault).token());
+        targetVaultWant = address(_targetWant);
+        targetVaultWantUnderlying0 = IERC20Upgradeable(_targetWant.token0());
+        targetVaultWantUnderlying1 = IERC20Upgradeable(_targetWant.token1());
 
         performanceFeeGovernance = _feeConfig[0];
         performanceFeeStrategist = _feeConfig[1];
@@ -145,7 +164,7 @@ contract StrategyGenericSolidexHelper is BaseStrategy {
 
     // @dev Specify the name of the strategy
     function getName() external pure override returns (string memory) {
-        return "StrategyGenericSolidexHelper";
+        return "StrategyGenericSolidexDCA";
     }
 
     // @dev Specify the version of the Strategy, for upgrades
@@ -173,13 +192,18 @@ contract StrategyGenericSolidexHelper is BaseStrategy {
         override
         returns (address[] memory)
     {
-        address[] memory protectedTokens = new address[](6);
+        address[] memory protectedTokens = new address[](10);
         protectedTokens[0] = want; // renBTC/wBTC Solid LP
         protectedTokens[1] = address(SEX); // Reward1
         protectedTokens[2] = address(SOLID); // Reward2
         protectedTokens[3] = address(wFTM); // Native Token
         protectedTokens[4] = address(token0); // wBTC
         protectedTokens[5] = address(token1); // renBTC
+        // Additional Protected tokens from DCA
+        protectedTokens[6] = address(targetVault); // Vault
+        protectedTokens[7] = address(targetVaultWant); // LP Token the Vault Receives, we harvest into this
+        protectedTokens[8] = address(targetVaultWantUnderlying0); // Component0 of LP abovr
+        protectedTokens[9] = address(targetVaultWantUnderlying1); // Component1 of LP above
         return protectedTokens;
     }
 
@@ -230,7 +254,8 @@ contract StrategyGenericSolidexHelper is BaseStrategy {
     function harvest() external whenNotPaused returns (uint256 harvested) {
         _onlyAuthorizedActors();
 
-        uint256 _before = IERC20Upgradeable(want).balanceOf(address(this));
+        // We track change in the Target Vault Want as this strat emits that
+        uint256 _before = IERC20Upgradeable(targetVaultWant).balanceOf(address(this));
 
         // 1. Claim rewards
         address[] memory pools = new address[](1);
@@ -249,22 +274,27 @@ contract StrategyGenericSolidexHelper is BaseStrategy {
             _doOptimalSwap(address(SEX), address(wFTM), sexBalance);
         }
 
-        // 4. Swap all wFTM for wBTC
+        // Figure out Token1 and Token2 for the LP
+        // Get those tokens
+        // Deposit into Vault
+        // Emit Vault
+
+        // 4. Swap all wFTM for Underlying0 (as underlying0 -> 1 is incentivize so low slippage is pretty likely)
         uint256 wFTMBalance = wFTM.balanceOf(address(this));
         if (wFTMBalance > 0) {
-            _doOptimalSwap(address(wFTM), address(token0), wFTMBalance);
+            _doOptimalSwap(address(wFTM), address(targetVaultWantUnderlying0), wFTMBalance);
 
             // 5. Swap half wBTC for renBTC
-            uint256 _half = token0.balanceOf(address(this)).mul(5000).div(MAX_BPS);
-            _doOptimalSwap(address(token0), address(token1), _half);
+            uint256 _half = targetVaultWantUnderlying0.balanceOf(address(this)).mul(5000).div(MAX_BPS);
+            _doOptimalSwap(address(targetVaultWantUnderlying0), address(targetVaultWantUnderlying1), _half);
 
-            // 6. Provide liquidity for WeVe/USDC LP Pair
-            uint256 token0In = token0.balanceOf(address(this));
-            uint256 token1In = token1.balanceOf(address(this));
+            // 6. Provide liquidity for the Target Vault LP Pair
+            uint256 token0In = targetVaultWantUnderlying0.balanceOf(address(this));
+            uint256 token1In = targetVaultWantUnderlying1.balanceOf(address(this));
             SOLIDLY_ROUTER.addLiquidity(
-                address(token0),
-                address(token1),
-                IBaseV1Pair(want).stable(),
+                address(targetVaultWantUnderlying0),
+                address(targetVaultWantUnderlying1),
+                IBaseV1Pair(targetVaultWant).stable(),
                 token0In,
                 token1In,
                 token0In.mul(sl).div(MAX_BPS),
@@ -276,68 +306,22 @@ contract StrategyGenericSolidexHelper is BaseStrategy {
 
         // 7. Process Fees
         uint256 earned =
-            IERC20Upgradeable(want).balanceOf(address(this)).sub(_before);
+            IERC20Upgradeable(targetVaultWant).balanceOf(address(this)).sub(_before);
 
         if(earned > 0){
-            /// Process fees
-            _processRewardsFees(earned, want);
-
-            // Emit to Tree the Helper Vault
-
-            uint256 earnedAfterFees =
-                IERC20Upgradeable(want).balanceOf(address(this)).sub(_before);
-
-            _deposit(earnedAfterFees);
+            _processRewardLpTokens(IERC20Upgradeable(targetVaultWant), targetVault);
 
             /// @dev Harvest event that every strategy MUST have, see BaseStrategy
-            emit Harvest(earnedAfterFees, block.number);
+            /// @notice Because we emit another vault token, we just say 0
+            emit Harvest(0, block.number);
 
             /// @dev Harvest must return the amount of want increased
-            return earnedAfterFees;
+            return 0;
         }
         return 0;
     }
 
-    /// ===== Internal Helper Functions =====
-
-    /// @dev used to manage the governance and strategist fee on earned rewards, make sure to use it to get paid!
-    function _processRewardsFees(uint256 _amount, address _token)
-        internal
-    {
-        if (performanceFeeGovernance > 0) {
-            uint256 governanceRewardsFee = _processFee(
-                _token,
-                _amount,
-                performanceFeeGovernance,
-                IController(controller).rewards()
-            );
-
-            emit PerformanceFeeGovernance(
-                IController(controller).rewards(),
-                _token,
-                governanceRewardsFee,
-                block.number,
-                block.timestamp
-            );
-        }
-
-        if (performanceFeeStrategist > 0) {
-            uint256 strategistRewardsFee = _processFee(
-                _token,
-                _amount,
-                performanceFeeStrategist,
-                strategist
-            );
-
-            emit PerformanceFeeStrategist(
-                strategist,
-                _token,
-                strategistRewardsFee,
-                block.number,
-                block.timestamp
-            );
-        }
-    }
+    
 
     /// @dev View function for testing the routing of the strategy
     function findOptimalSwap(address tokenIn, address tokenOut, uint256 amountIn) external view returns (string memory, uint256 amount) {
@@ -381,6 +365,8 @@ contract StrategyGenericSolidexHelper is BaseStrategy {
             return ("spooky", spookyQuote);
         }
     }
+
+    /// ===== Internal Helper Functions =====
 
     function _doOptimalSwap(address tokenIn, address tokenOut, uint256 amountIn) internal returns (uint256) {
        // Check Solidly
@@ -436,5 +422,88 @@ contract StrategyGenericSolidexHelper is BaseStrategy {
             return amounts[amounts.length - 1];
         }
     }
+
+
+
+    /// @dev Utility Deposit into Vault function
+     function _depositForIntoHelper(
+        ISettV4h _helperVault,
+        address _recipient,
+        uint256 _amount
+    ) internal returns (uint256) {
+        uint256 helperVaultBefore = _helperVault.balanceOf(_recipient);
+
+        _helperVault.depositFor(_recipient, _amount);
+
+        uint256 helperVaultAfter = _helperVault.balanceOf(_recipient);
+
+        return helperVaultAfter.sub(helperVaultBefore);
+    }
+
+    /// @dev used to manage the governance and strategist fee on earned rewards, make sure to use it to get paid!
+    function _processRewardLpTokens(
+        IERC20Upgradeable _lpToken,
+        ISettV4h _helperVault
+    ) internal {
+        // Desposit the rest of the LP for the Tree
+        uint256 lpBalance = _lpToken.balanceOf(address(this));
+
+        uint256 governanceFee = lpBalance.mul(performanceFeeGovernance).div(
+            MAX_FEE
+        );
+
+        if (governanceFee > 0) {
+            address treasury = IController(controller).rewards();
+            uint256 govVaultPositionGained = _depositForIntoHelper(
+                _helperVault,
+                treasury,
+                governanceFee
+            );
+
+            emit PerformanceFeeGovernance(
+                treasury,
+                address(_helperVault),
+                govVaultPositionGained,
+                block.number,
+                block.timestamp
+            );
+        }
+
+        uint256 strategistFee = lpBalance.mul(performanceFeeStrategist).div(
+            MAX_FEE
+        );
+
+        if (strategistFee > 0) {
+            uint256 strategistVaultPositionGained = _depositForIntoHelper(
+                _helperVault,
+                strategist,
+                strategistFee
+            );
+
+            emit PerformanceFeeStrategist(
+                strategist,
+                address(_helperVault),
+                strategistVaultPositionGained,
+                block.number,
+                block.timestamp
+            );
+        }
+
+        uint256 lpToTree = lpBalance.sub(governanceFee).sub(strategistFee);
+
+        uint256 treeVaultPositionGained = _depositForIntoHelper(
+            _helperVault,
+            BADGER_TREE,
+            lpToTree
+        );
+
+        emit TreeDistribution(
+            address(_helperVault),
+            treeVaultPositionGained,
+            block.number,
+            block.timestamp
+        );
+    }
+
 
 }

@@ -8,10 +8,8 @@ BADGER_DEV_MULTISIG = "0x4c56ee3295042f8A5dfC83e770a21c707CB46f5b"
 
 sett_config = DotMap(
     native = DotMap(
-        StrategyGenericSolidexHelper = DotMap(
+        StrategyGenericSolidexDCA = DotMap(
             WANT = WANT,  ## WeVE/USDC LP
-            LP_COMPONENT =  "0x6058345A4D8B89Ddac7042Be08091F91a404B80b",  ## NOT USED
-            REWARD_TOKEN = "0x6058345A4D8B89Ddac7042Be08091F91a404B80b",  ## NOT USED
             WHALE = "0xf9ce347a78dd40f8e02f84431286a4f1153a78bd"
         )
     )
