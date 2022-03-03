@@ -67,7 +67,7 @@ def deploy(sett_config):
         controller,
         keeper,
         guardian,
-        sett_config.WANT,
+        [sett_config.WANT, sett_config.TARGET_VAULT],
         FEES,
     ]
 
@@ -88,6 +88,10 @@ def deploy(sett_config):
     want.transfer(deployer.address, want.balanceOf(whale.address)/3, {"from": whale})
 
     assert want.balanceOf(deployer.address) > 0
+
+    ## Approve strategy for vault so we can DCA
+    target_vault = SettV4.at(sett_config.TARGET_VAULT)
+    target_vault.approveContractAccess(strategy, {"from": accounts.at(target_vault.governance(), force=True)})
 
     return DotMap(
         governance=governance,

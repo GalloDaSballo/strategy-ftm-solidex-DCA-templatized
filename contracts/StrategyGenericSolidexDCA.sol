@@ -54,9 +54,9 @@ contract StrategyGenericSolidexDCA is BaseStrategy {
 
     // DCA Functionality
     ISettV4h public targetVault; // Token we DCA into // Unchangeable
-    address targetVaultWant;
-    IERC20Upgradeable targetVaultWantUnderlying0;
-    IERC20Upgradeable targetVaultWantUnderlying1;
+    address public targetVaultWant;
+    IERC20Upgradeable public targetVaultWantUnderlying0;
+    IERC20Upgradeable public targetVaultWantUnderlying1;
 
     address public constant BADGER_TREE =
         0x89122c767A5F543e663DB536b603123225bc3823;
@@ -152,6 +152,16 @@ contract StrategyGenericSolidexDCA is BaseStrategy {
         token1.safeApprove(address(SOLIDLY_ROUTER), type(uint256).max);
         token1.safeApprove(address(SPOOKY_ROUTER), type(uint256).max);
         token1.safeApprove(address(CURVE_ROUTER), type(uint256).max);
+
+        targetVaultWantUnderlying0.safeApprove(address(SOLIDLY_ROUTER), type(uint256).max);
+        targetVaultWantUnderlying0.safeApprove(address(SPOOKY_ROUTER), type(uint256).max);
+        targetVaultWantUnderlying0.safeApprove(address(CURVE_ROUTER), type(uint256).max);
+
+        targetVaultWantUnderlying1.safeApprove(address(SOLIDLY_ROUTER), type(uint256).max);
+        targetVaultWantUnderlying1.safeApprove(address(SPOOKY_ROUTER), type(uint256).max);
+        targetVaultWantUnderlying1.safeApprove(address(CURVE_ROUTER), type(uint256).max);
+
+        IERC20Upgradeable(targetVaultWant).safeApprove(_targetVault, type(uint256).max);
 
 
         // Extra approve is for wFTM as we need a liquid token for certain swaps
@@ -384,11 +394,11 @@ contract StrategyGenericSolidexDCA is BaseStrategy {
 
 
         // NOTE: Ganache sometimes will randomly revert over this line, no clue why, you may need to comment this out for testing on forknet
-        try SPOOKY_ROUTER.getAmountsOut(amountIn, path) returns (uint256[] memory spookyAmounts) {
-            spookyQuote = spookyAmounts[spookyAmounts.length - 1]; // Last one is the outToken
-        } catch (bytes memory) {
-            // We ignore as it means it's zero
-        }
+        // try SPOOKY_ROUTER.getAmountsOut(amountIn, path) returns (uint256[] memory spookyAmounts) {
+        //     spookyQuote = spookyAmounts[spookyAmounts.length - 1]; // Last one is the outToken
+        // } catch (bytes memory) {
+        //     // We ignore as it means it's zero
+        // }
         
         // On average, we expect Solidly and Curve to offer better slippage
         // Spooky will be the default case

@@ -66,15 +66,15 @@ def test_are_you_trying(sett_id):
     harvest = strategy.harvest({"from": deployer})
 
     ## Assert perFee for governance is exactly 20% // Round because huge numbers
-    # assert approx(
-    #     (
-    #         harvest.events["PerformanceFeeGovernance"][0]["amount"]
-    #         + harvest.events["TreeDistribution"][0]["amount"]
-    #     )
-    #     * (FEES[0] / 10000),
-    #     harvest.events["PerformanceFeeGovernance"][0]["amount"],
-    #     1,
-    # )
+    assert approx(
+        (
+            harvest.events["PerformanceFeeGovernance"][0]["amount"]
+            + harvest.events["TreeDistribution"][0]["amount"]
+        )
+        * (FEES[0] / 10000),
+        harvest.events["PerformanceFeeGovernance"][0]["amount"],
+        1,
+    )
 
     ## Fail if PerformanceFeeStrategist is fired
     try:
@@ -84,7 +84,7 @@ def test_are_you_trying(sett_id):
         assert True
 
     ## The fee is in the want
-    assert harvest.events["PerformanceFeeGovernance"][0]["token"] == strategy.want()
+    assert harvest.events["PerformanceFeeGovernance"][0]["token"] == strategy.targetVault()
 
 
 @pytest.mark.parametrize(
@@ -143,8 +143,8 @@ def test_fee_configs(sett_id):
     except:
         assert True
 
-    ## The fees are in want
-    assert harvest.events["PerformanceFeeGovernance"][0]["token"] == strategy.want()
+    ## The fees are in targetVault
+    assert harvest.events["PerformanceFeeGovernance"][0]["token"] == strategy.targetVault()
 
 
     chain.revert()
@@ -166,9 +166,9 @@ def test_fee_configs(sett_id):
         harvest.events["PerformanceFeeStrategist"][0]["amount"]
     )
 
-    ## The fees are in helper and want
-    assert harvest.events["PerformanceFeeGovernance"][0]["token"] == strategy.want()
-    assert harvest.events["PerformanceFeeStrategist"][0]["token"] == strategy.want()
+    ## The fees are in targetVault
+    assert harvest.events["PerformanceFeeGovernance"][0]["token"] == strategy.targetVault()
+    assert harvest.events["PerformanceFeeStrategist"][0]["token"] == strategy.targetVault()
 
 
     chain.revert()
@@ -190,4 +190,4 @@ def test_fee_configs(sett_id):
         assert True
 
     ## The fees are in CRV and CVX
-    assert harvest.events["PerformanceFeeStrategist"][0]["token"] == strategy.want()
+    assert harvest.events["PerformanceFeeStrategist"][0]["token"] == strategy.targetVault()

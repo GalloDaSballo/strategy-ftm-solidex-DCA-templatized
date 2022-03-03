@@ -2,15 +2,16 @@
 ## This file would allow them to configure so they can test, deploy and interact with the strategy
 from dotmap import DotMap
 
-WANT = "0x6058345A4D8B89Ddac7042Be08091F91a404B80b" ## "wBTC/renBTC"
-
+WANT = "0xbcab7d083Cf6a01e0DdA9ed7F8a02b47d125e682" ## "wBTC/renBTC"
+TARGET_VAULT = "0xb6d63a4e5ca740e96c26adabcac73be78ee39dc5"
 BADGER_DEV_MULTISIG = "0x4c56ee3295042f8A5dfC83e770a21c707CB46f5b"
-
+WHALE = "0xc009bc33201a85800b3593a40a178521a8e60a02"
 sett_config = DotMap(
     native = DotMap(
         StrategyGenericSolidexDCA = DotMap(
-            WANT = WANT,  ## WeVE/USDC LP
-            WHALE = "0xf9ce347a78dd40f8e02f84431286a4f1153a78bd"
+            WANT = WANT,  
+            TARGET_VAULT = TARGET_VAULT,
+            WHALE = WHALE
         )
     )
 )

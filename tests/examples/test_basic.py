@@ -29,8 +29,12 @@ def test_deploy_settings(sett_id):
     assert protected_tokens[1] == strategy.SEX()
     assert protected_tokens[2] == strategy.SOLID()
     assert protected_tokens[3] == strategy.wFTM()
-    assert protected_tokens[4] == strategy.wBTC() ## TODO Abstract
-    assert protected_tokens[5] == strategy.renBTC()
+    assert protected_tokens[4] == strategy.token0() ## TODO Abstract
+    assert protected_tokens[5] == strategy.token1()
+    assert protected_tokens[6] == strategy.targetVault()
+    assert protected_tokens[7] == strategy.targetVaultWant()
+    assert protected_tokens[8] == strategy.targetVaultWantUnderlying0()
+    assert protected_tokens[9] == strategy.targetVaultWantUnderlying1()
 
     assert strategy.governance() == BADGER_DEV_MULTISIG
 
