@@ -145,14 +145,6 @@ contract StrategyGenericSolidexDCA is BaseStrategy {
         token0 = IERC20Upgradeable(lpToken.token0());
         token1 = IERC20Upgradeable(lpToken.token1());
 
-        token0.safeApprove(address(SOLIDLY_ROUTER), type(uint256).max);
-        token0.safeApprove(address(SPOOKY_ROUTER), type(uint256).max);
-        token0.safeApprove(address(CURVE_ROUTER), type(uint256).max);
-
-        token1.safeApprove(address(SOLIDLY_ROUTER), type(uint256).max);
-        token1.safeApprove(address(SPOOKY_ROUTER), type(uint256).max);
-        token1.safeApprove(address(CURVE_ROUTER), type(uint256).max);
-
         targetVaultWantUnderlying0.safeApprove(address(SOLIDLY_ROUTER), type(uint256).max);
         targetVaultWantUnderlying0.safeApprove(address(SPOOKY_ROUTER), type(uint256).max);
         targetVaultWantUnderlying0.safeApprove(address(CURVE_ROUTER), type(uint256).max);
@@ -394,11 +386,11 @@ contract StrategyGenericSolidexDCA is BaseStrategy {
 
 
         // NOTE: Ganache sometimes will randomly revert over this line, no clue why, you may need to comment this out for testing on forknet
-        // try SPOOKY_ROUTER.getAmountsOut(amountIn, path) returns (uint256[] memory spookyAmounts) {
-        //     spookyQuote = spookyAmounts[spookyAmounts.length - 1]; // Last one is the outToken
-        // } catch (bytes memory) {
-        //     // We ignore as it means it's zero
-        // }
+        try SPOOKY_ROUTER.getAmountsOut(amountIn, path) returns (uint256[] memory spookyAmounts) {
+            spookyQuote = spookyAmounts[spookyAmounts.length - 1]; // Last one is the outToken
+        } catch (bytes memory) {
+            // We ignore as it means it's zero
+        }
         
         // On average, we expect Solidly and Curve to offer better slippage
         // Spooky will be the default case

@@ -10,7 +10,7 @@ from brownie import (
     BadgerRegistry,
 )
 
-from config import WANT, FEES, REGISTRY
+from config import WANT, TARGET_VAULT, FEES, REGISTRY
 
 from helpers.constants import AddressZero
 
@@ -48,10 +48,10 @@ def main():
     assert proxyAdmin != AddressZero
 
     # Deploy controller
-    controller = Controller.at("0x72ac086a5d7e1221a6d47438c45ed199e9bff423")
+    controller = deploy_controller(dev, proxyAdmin)
 
     # Deploy Vault
-    vault = SettV4.at("0xb6d63a4e5ca740e96c26adabcac73be78ee39dc5")
+    vault = deploy_vault(controller, dev.address, keeper, guardian, dev, proxyAdmin)
 
     # Deploy Strategy
     strategy = deploy_strategy(
@@ -153,19 +153,19 @@ def deploy_strategy(
         controller,
         keeper,
         guardian,
-        WANT,
+        [WANT, TARGET_VAULT],
         FEES,
     ]
 
     print("Strategy Arguments: ", args)
 
-    strat_logic = StrategyGenericSolidexDCA.at("0x2b7f219d0f574d1bb7893bdddb67e40f4aa8d10d")
+    strat_logic = StrategyGenericSolidexDCA.deploy({"from": dev})
 
     strat_proxy = AdminUpgradeabilityProxy.deploy(
         strat_logic,
         proxyAdmin,
         strat_logic.initialize.encode_input(*args),
-        {"from": dev, "allow_revert": True, "gas_limit": 800000},
+        {"from": dev},
     )
     time.sleep(sleep_between_tx)
 
